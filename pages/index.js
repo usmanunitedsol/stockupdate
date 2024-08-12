@@ -3,7 +3,6 @@ import Image from "next/image";
 import { Inter } from "next/font/google";
 import styles from "@/styles/Home.module.css";
 import { useState } from "react";
-import Papa from 'papaparse';
 import * as XLSX from "xlsx";
 const inter = Inter({ subsets: ["latin"] });
 
@@ -46,10 +45,10 @@ export default function Home() {
       );
 
       return {
-        ...wooProduct,
-        shopify_stock: matchingShopifyProduct
-          ? matchingShopifyProduct.shopify_stock
-          : 0,
+        title: wooProduct.title,
+        variant: wooProduct.variant,
+        woo_stock: wooProduct.stock,
+        shopify_stock: matchingShopifyProduct ? matchingShopifyProduct.stock : 0,
       };
     });
 
@@ -71,41 +70,40 @@ export default function Home() {
   const downloadMergedFile = () => {
     const worksheet = XLSX.utils.json_to_sheet(mergedData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Merged Data");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Comparison");
 
-    XLSX.writeFile(workbook, "merged_products.xlsx");
+    XLSX.writeFile(workbook, "stock_comparison.xlsx");
   };
-
 
   return (
     <>
-  
-  <div className="container mx-auto p-4">
-      <h1 className="text-xl font-bold mb-4">Merge WooCommerce & Shopify Products</h1>
-      <div className="mb-4">
-        <input type="file" onChange={(e) => handleFileUpload(e, "woo")} />
-        <label className="ml-2">Upload WooCommerce CSV</label>
-      </div>
-      <div className="mb-4">
-        <input type="file" onChange={(e) => handleFileUpload(e, "shopify")} />
-        <label className="ml-2">Upload Shopify CSV</label>
-      </div>
-      <button
-        onClick={handleMerge}
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-      >
-        Merge Products
-      </button>
-      {mergedData.length > 0 && (
+      <div className="container mx-auto p-4">
+        <h1 className="text-xl font-bold mb-4">
+          Merge WooCommerce & Shopify Products
+        </h1>
+        <div className="mb-4">
+          <input type="file" onChange={(e) => handleFileUpload(e, "woo")} />
+          <label className="ml-2">Upload WooCommerce CSV</label>
+        </div>
+        <div className="mb-4">
+          <input type="file" onChange={(e) => handleFileUpload(e, "shopify")} />
+          <label className="ml-2">Upload Shopify CSV</label>
+        </div>
         <button
-          onClick={downloadMergedFile}
-          className="bg-green-500 text-white px-4 py-2 rounded ml-4"
+          onClick={handleMerge}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
         >
-          Download Merged File
+          Merge Products
         </button>
-      )}
-    </div>
-
+        {mergedData.length > 0 && (
+          <button
+            onClick={downloadMergedFile}
+            className="bg-green-500 text-white px-4 py-2 rounded ml-4"
+          >
+            Download Stock Comparison File
+          </button>
+        )}
+      </div>
     </>
   );
 }
