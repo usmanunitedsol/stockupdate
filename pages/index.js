@@ -60,62 +60,50 @@ function CompareStock() {
       error: (error) => console.error("Error parsing WooCommerce CSV:", error)
     });
   };
-
   const compareAndGenerateFile = (wooData, shopifyData) => {
     console.log("WooCommerce Data Length:", wooData.length);
     console.log("Shopify Data Length:", shopifyData.length);
-    console.log("Shopify sku", shopifyData[30].SKU);
-    console.log("Shopify sku", wooData[0].Barcode);
-
+  
     const results = wooData.map(wooItem => {
       const shopifyItem = shopifyData.find(item => {
-        const wooBarcode = (wooItem.Barcode || '').toLowerCase().trim();
+        const wooSKU = (wooItem.SKU || '').toLowerCase().trim();
         const shopifySKU = (item.SKU || '').toLowerCase().trim();
-
-        return wooBarcode && shopifySKU && wooBarcode === shopifySKU;
+  
+        return wooSKU && shopifySKU && wooSKU === shopifySKU;
       });
-
+  
       console.log("Matching WooCommerce Item:", wooItem);
       console.log("Matching Shopify Item:", shopifyItem);
-
+  
       if (shopifyItem) {
-        const stockColumns = [
-          "Volcano Vapes Bult,Potchefstroom",
-          "Volcano Vapes Vyfhoek,Potchefstroom",
-          "Volcano Vapes Delmas",
-          "Volcano Vapes Germiston",
-          "Volcano Vapes Ballito",
-          "Germiston Wharehouse"
-        ];
-
-        const shopifyTotalStock = stockColumns.reduce((sum, column) => {
-          const stock = shopifyItem[column] === 'not stocked' ? 0 : parseInt(shopifyItem[column]) || 0;
-          return sum + stock;
-        }, 0);
-
-        const wooStock = wooItem['In stock?'] === 'true' ? parseInt(wooItem.Stock) || 0 : 0;
-
-        return {
-          WooCommerceName: wooItem.Name,
-          ShopifyName: shopifyItem.Title,
+        const shopifyStock = parseInt(shopifyItem['On hand']) || 0;
+        console.log("Shopify On hand Stock:", shopifyStock);
+  
+        const wooStock = parseInt(wooItem.Stock) || 0;
+        console.log("WooCommerce Stock:", wooStock);
+  
+        const result = {
+          WooCommerceName: wooItem.Name || 'N/A',
+          ShopifyName: shopifyItem.Title || 'N/A',
           Flavor: shopifyItem['Option1 Value'] || 'N/A',
-          ShopifyStock: shopifyTotalStock.toString(),
+          ShopifyStock: shopifyStock.toString(),
           WooCommerceStock: wooStock.toString(),
           WooCommerceSKU: wooItem.SKU || 'N/A',
           ShopifySKU: shopifyItem.SKU || 'N/A',
-          WooCommerceBarcode: wooItem.Barcode || 'N/A',
-          ShopifyHandle: shopifyItem.Handle || 'N/A'
         };
+  
+        console.log("Result item:", result);
+        return result;
       }
       return null;
     }).filter(Boolean);
-
+  
     console.log("Results:", results);
     console.log("Results Length:", results.length);
     generateCSVFile(results);
   };
-
   const generateCSVFile = (data) => {
+    console.log("Generating CSV file with data:", data);
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
