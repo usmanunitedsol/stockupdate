@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "file-saver": "^2.0.5",
     "next": "14.2.5",
     "papaparse": "^5.4.1",
     "react": "^18",

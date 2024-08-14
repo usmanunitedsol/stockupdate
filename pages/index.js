@@ -1,109 +1,138 @@
-import Head from "next/head";
-import Image from "next/image";
-import { Inter } from "next/font/google";
-import styles from "@/styles/Home.module.css";
-import { useState } from "react";
-import * as XLSX from "xlsx";
-const inter = Inter({ subsets: ["latin"] });
+import React, { useState } from 'react';
+import Papa from 'papaparse';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 
-export default function Home() {
-  const [wooCommerceFile, setWooCommerceFile] = useState(null);
+function CompareStock() {
+  const [wooFile, setWooFile] = useState(null);
   const [shopifyFile, setShopifyFile] = useState(null);
-  const [mergedData, setMergedData] = useState([]);
 
-  const handleFileUpload = (e, platform) => {
+  const handleFileChange = (setter) => (e) => {
     const file = e.target.files[0];
-    if (platform === "woo") {
-      setWooCommerceFile(file);
-    } else if (platform === "shopify") {
-      setShopifyFile(file);
+    console.log("Selected File:", file);
+    setter(file);
+  };
+
+  const handleCompareStock = () => {
+    if (wooFile && shopifyFile) {
+      parseCSVFiles(wooFile, shopifyFile);
+    } else {
+      alert("Please upload both files.");
     }
   };
 
-  const parseCSV = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const data = e.target.result;
-        const workbook = XLSX.read(data, { type: "binary" });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        resolve(jsonData);
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsBinaryString(file);
+  const parseCSVFiles = (wooFile, shopifyFile) => {
+    Papa.parse(wooFile, {
+      header: true,
+      complete: (wooResults) => {
+        console.log("WooCommerce Data:", wooResults.data);
+        console.log("WooCommerce Data Length:", wooResults.data.length);
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          const lines = content.split('\n').filter(line => line.trim() !== '');
+          const headers = lines[0].split(',');
+          
+          const shopifyData = lines.slice(1).map(line => {
+            const values = line.split(',');
+            return headers.reduce((obj, header, index) => {
+              obj[header.trim()] = values[index] ? values[index].trim() : '';
+              return obj;
+            }, {});
+          });
+  
+          console.log("Shopify parsing complete");
+          console.log("Shopify Headers:", headers);
+          console.log("Shopify Data:", shopifyData);
+          console.log("Shopify Data Length:", shopifyData.length);
+          
+          if (shopifyData.length === 0) {
+            console.error("No Shopify data found. Please check the Shopify CSV file.");
+            return;
+          }
+          
+          compareAndGenerateFile(wooResults.data, shopifyData);
+        };
+        reader.onerror = (error) => console.error("Error reading Shopify file:", error);
+        reader.readAsText(shopifyFile);
+      },
+      error: (error) => console.error("Error parsing WooCommerce CSV:", error)
     });
   };
 
-  const mergeData = (wooData, shopifyData) => {
-    const merged = wooData.map((wooProduct) => {
-      const matchingShopifyProduct = shopifyData.find(
-        (shopifyProduct) =>
-          shopifyProduct.title === wooProduct.title &&
-          shopifyProduct.variant === wooProduct.variant
-      );
+  const compareAndGenerateFile = (wooData, shopifyData) => {
+    console.log("WooCommerce Data Length:", wooData.length);
+    console.log("Shopify Data Length:", shopifyData.length);
+    console.log("Shopify sku", shopifyData[30].SKU);
+    console.log("Shopify sku", wooData[0].Barcode);
 
-      return {
-        title: wooProduct.title,
-        variant: wooProduct.variant,
-        woo_stock: wooProduct.stock,
-        shopify_stock: matchingShopifyProduct ? matchingShopifyProduct.stock : 0,
-      };
-    });
+    const results = wooData.map(wooItem => {
+      const shopifyItem = shopifyData.find(item => {
+        const wooBarcode = (wooItem.Barcode || '').toLowerCase().trim();
+        const shopifySKU = (item.SKU || '').toLowerCase().trim();
 
-    setMergedData(merged);
+        return wooBarcode && shopifySKU && wooBarcode === shopifySKU;
+      });
+
+      console.log("Matching WooCommerce Item:", wooItem);
+      console.log("Matching Shopify Item:", shopifyItem);
+
+      if (shopifyItem) {
+        const stockColumns = [
+          "Volcano Vapes Bult,Potchefstroom",
+          "Volcano Vapes Vyfhoek,Potchefstroom",
+          "Volcano Vapes Delmas",
+          "Volcano Vapes Germiston",
+          "Volcano Vapes Ballito",
+          "Germiston Wharehouse"
+        ];
+
+        const shopifyTotalStock = stockColumns.reduce((sum, column) => {
+          const stock = shopifyItem[column] === 'not stocked' ? 0 : parseInt(shopifyItem[column]) || 0;
+          return sum + stock;
+        }, 0);
+
+        const wooStock = wooItem['In stock?'] === 'true' ? parseInt(wooItem.Stock) || 0 : 0;
+
+        return {
+          WooCommerceName: wooItem.Name,
+          ShopifyName: shopifyItem.Title,
+          Flavor: shopifyItem['Option1 Value'] || 'N/A',
+          ShopifyStock: shopifyTotalStock.toString(),
+          WooCommerceStock: wooStock.toString(),
+          WooCommerceSKU: wooItem.SKU || 'N/A',
+          ShopifySKU: shopifyItem.SKU || 'N/A',
+          WooCommerceBarcode: wooItem.Barcode || 'N/A',
+          ShopifyHandle: shopifyItem.Handle || 'N/A'
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    console.log("Results:", results);
+    console.log("Results Length:", results.length);
+    generateCSVFile(results);
   };
 
-  const handleMerge = async () => {
-    if (!wooCommerceFile || !shopifyFile) {
-      alert("Please upload both files");
-      return;
-    }
-
-    const wooData = await parseCSV(wooCommerceFile);
-    const shopifyData = await parseCSV(shopifyFile);
-
-    mergeData(wooData, shopifyData);
-  };
-
-  const downloadMergedFile = () => {
-    const worksheet = XLSX.utils.json_to_sheet(mergedData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Comparison");
-
-    XLSX.writeFile(workbook, "stock_comparison.xlsx");
+  const generateCSVFile = (data) => {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const wbout = XLSX.write(wb, { bookType: 'csv', type: 'array' });
+    const blob = new Blob([wbout], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, 'stock_comparison_result.csv');
   };
 
   return (
-    <>
-      <div className="container mx-auto p-4">
-        <h1 className="text-xl font-bold mb-4">
-          Merge WooCommerce & Shopify Products
-        </h1>
-        <div className="mb-4">
-          <input type="file" onChange={(e) => handleFileUpload(e, "woo")} />
-          <label className="ml-2">Upload WooCommerce CSV</label>
-        </div>
-        <div className="mb-4">
-          <input type="file" onChange={(e) => handleFileUpload(e, "shopify")} />
-          <label className="ml-2">Upload Shopify CSV</label>
-        </div>
-        <button
-          onClick={handleMerge}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          Merge Products
-        </button>
-        {mergedData.length > 0 && (
-          <button
-            onClick={downloadMergedFile}
-            className="bg-green-500 text-white px-4 py-2 rounded ml-4"
-          >
-            Download Stock Comparison File
-          </button>
-        )}
-      </div>
-    </>
+    <div>
+      <label htmlFor="wooFile">Upload WooCommerce file</label>
+      <input id="wooFile" type="file" accept=".csv" onChange={handleFileChange(setWooFile)} />
+      <label htmlFor="shopifyFile">Upload Shopify file</label>
+      <input id="shopifyFile" type="file" accept=".csv" onChange={handleFileChange(setShopifyFile)} />
+      <button onClick={handleCompareStock}>Compare Stock</button>
+    </div>
   );
 }
+
+export default CompareStock;
