@@ -3,10 +3,11 @@ import Papa from 'papaparse';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 
+
 function CompareStock() {
   const [wooFile, setWooFile] = useState(null);
   const [shopifyFile, setShopifyFile] = useState(null);
-
+  const [isComparing, setIsComparing] = useState(false);
   const handleFileChange = (setter) => (e) => {
     const file = e.target.files[0];
     console.log("Selected File:", file);
@@ -15,6 +16,7 @@ function CompareStock() {
 
   const handleCompareStock = () => {
     if (wooFile && shopifyFile) {
+      setIsComparing(true);
       parseCSVFiles(wooFile, shopifyFile);
     } else {
       alert("Please upload both files.");
@@ -60,6 +62,7 @@ function CompareStock() {
       error: (error) => console.error("Error parsing WooCommerce CSV:", error)
     });
   };
+
   const compareAndGenerateFile = (wooData, shopifyData) => {
     console.log("WooCommerce Data Length:", wooData.length);
     console.log("Shopify Data Length:", shopifyData.length);
@@ -82,12 +85,16 @@ function CompareStock() {
         const wooStock = parseInt(wooItem.Stock) || 0;
         console.log("WooCommerce Stock:", wooStock);
   
+        const totalStock = wooStock + shopifyStock;
+
         const result = {
           WooCommerceName: wooItem.Name || 'N/A',
           ShopifyName: shopifyItem.Title || 'N/A',
           Flavor: shopifyItem['Option1 Value'] || 'N/A',
-          ShopifyStock: shopifyStock.toString(),
-          WooCommerceStock: wooStock.toString(),
+          'WordPress Stock': wooStock.toString(),
+          'Shopify Stock': shopifyStock.toString(),
+          'Total Stock': totalStock.toString(),
+          'Reorder Level - Amount to Order': '',
           WooCommerceSKU: wooItem.SKU || 'N/A',
           ShopifySKU: shopifyItem.SKU || 'N/A',
         };
@@ -102,6 +109,7 @@ function CompareStock() {
     console.log("Results Length:", results.length);
     generateCSVFile(results);
   };
+
   const generateCSVFile = (data) => {
     console.log("Generating CSV file with data:", data);
     const ws = XLSX.utils.json_to_sheet(data);
@@ -110,16 +118,48 @@ function CompareStock() {
     const wbout = XLSX.write(wb, { bookType: 'csv', type: 'array' });
     const blob = new Blob([wbout], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, 'stock_comparison_result.csv');
+    setIsComparing(false);
   };
 
   return (
-    <div>
-      <label htmlFor="wooFile">Upload WooCommerce file</label>
-      <input id="wooFile" type="file" accept=".csv" onChange={handleFileChange(setWooFile)} />
-      <label htmlFor="shopifyFile">Upload Shopify file</label>
-      <input id="shopifyFile" type="file" accept=".csv" onChange={handleFileChange(setShopifyFile)} />
-      <button onClick={handleCompareStock}>Compare Stock</button>
+    <div className="compare-stock-container">
+    <h2 className="compare-stock-title">Stock Comparison Tool</h2>
+    
+    <div className="file-upload-container">
+      <div className="file-upload-item">
+        <div className="file-icon-label">
+          <span className="file-icon">📄</span>
+          <span>WooCommerce File</span>
+        </div>
+        <label htmlFor="wooFile" className="file-upload-button">
+          <span className="upload-icon">⬆️</span>
+          <span>Upload</span>
+        </label>
+        <input id="wooFile" type="file" accept=".csv" onChange={handleFileChange(setWooFile)} />
+      </div>
+
+      <div className="file-upload-item">
+        <div className="file-icon-label">
+          <span className="file-icon">📄</span>
+          <span>Shopify File</span>
+        </div>
+        <label htmlFor="shopifyFile" className="file-upload-button">
+          <span className="upload-icon">⬆️</span>
+          <span>Upload</span>
+        </label>
+        <input id="shopifyFile" type="file" accept=".csv" onChange={handleFileChange(setShopifyFile)} />
+      </div>
     </div>
+
+    <button 
+      onClick={handleCompareStock}
+      disabled={isComparing || !wooFile || !shopifyFile}
+      className={`compare-button ${isComparing || !wooFile || !shopifyFile ? 'disabled' : ''}`}
+    >
+      <span className={`compare-icon ${isComparing ? 'spinning' : ''}`}>🔄</span>
+      {isComparing ? 'Comparing...' : 'Compare Stock'}
+    </button>
+  </div>
   );
 }
 
