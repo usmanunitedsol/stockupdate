@@ -54,7 +54,8 @@ function CompareStock() {
     });
   };
   const compareAndGenerateFile = (wooData, shopifyData) => {
-   
+    console.log("WooCommerce Data Length:", wooData.length);
+    console.log("Shopify Data Length:", shopifyData.length);
   
     // Extract location fields from the Shopify data
     const locationFields = [
@@ -66,7 +67,7 @@ function CompareStock() {
       "Germiston Wharehouse"
     ];
   
-    const results = wooData.map(wooItem => {
+    const results = wooData.reduce((acc, wooItem) => {
       const shopifyItem = shopifyData.find(item => {
         const wooSKU = (wooItem.SKU || '').toLowerCase().trim();
         const shopifySKU = (item.SKU || '').toLowerCase().trim();
@@ -74,44 +75,49 @@ function CompareStock() {
         return wooSKU && shopifySKU && wooSKU === shopifySKU;
       });
   
+      // If no matching Shopify item is found, skip this product
+      if (!shopifyItem) {
+        console.log(`No matching Shopify item found for WooCommerce SKU: ${wooItem.SKU}. Skipping.`);
+        return acc;
+      }
+  
       const locationStocks = {};
       let totalShopifyStock = 0;
   
       locationFields.forEach(location => {
-        let stock = 0;
-        if (shopifyItem) {
-          const rawValue = shopifyItem[location] || shopifyItem[`"${location}"`]; // Try both with and without quotes
-  
-          stock = rawValue === 'not stocked' ? 0 : (parseInt(rawValue) || 0);
-        
-        }
+        const rawValue = shopifyItem[location] || shopifyItem[`"${location}"`]; // Try both with and without quotes
+        console.log(`Raw value for ${location}:`, rawValue);
+        const stock = rawValue === 'not stocked' ? 0 : (parseInt(rawValue) || 0);
+        console.log(`Parsed stock for ${location}:`, stock);
         locationStocks[location] = stock;
         totalShopifyStock += stock;
       });
   
-    
+      console.log("Total Shopify Stock:", totalShopifyStock);
   
       const wooStock = parseInt(wooItem.Stock) || 0;
       const totalStock = wooStock + totalShopifyStock;
   
       const result = {
-        WooCommerceName: wooItem.Name || 'N/A',
-        ShopifyName: shopifyItem ? (shopifyItem.Title || 'N/A') : 'N/A',
-        Flavor: shopifyItem ? (shopifyItem['Option1 Value'] || 'N/A') : 'N/A',
+        WooCommerceName: wooItem.Name,
+        ShopifyName: shopifyItem.Title,
+        Flavor: shopifyItem['Option1 Value'],
         'WordPress Stock': wooStock.toString(),
         ...locationStocks,
         'Total Shopify Stock': totalShopifyStock.toString(),
         'Total Stock': totalStock.toString(),
         'Reorder Level - Amount to Order': '',
-        WooCommerceSKU: wooItem.SKU || 'N/A',
-        ShopifySKU: shopifyItem ? (shopifyItem.SKU || 'N/A') : 'N/A',
+        WooCommerceSKU: wooItem.SKU,
+        ShopifySKU: shopifyItem.SKU,
       };
   
-     
-      return result;
-    });
+      console.log("Result item:", result);
+      acc.push(result);
+      return acc;
+    }, []);
   
- 
+    console.log("Results:", results);
+    console.log("Results Length:", results.length);
     generateCSVFile(results);
   };
 
