@@ -10,7 +10,7 @@ function CompareStock() {
 
   const handleFileChange = (setter) => (e) => {
     const file = e.target.files[0];
-    console.log("Selected File:", file);
+   
     setter(file);
   };
 
@@ -24,18 +24,15 @@ function CompareStock() {
   };
 
   const parseCSVFiles = (wooFile, shopifyFile) => {
-    console.log("Starting to parse WooCommerce file");
+  
     Papa.parse(wooFile, {
       header: true,
       complete: (wooResults) => {
-        console.log("WooCommerce parsing complete");
-        console.log("WooCommerce Data:", wooResults.data);
-        
-        console.log("Starting to parse Shopify file");
+     
         Papa.parse(shopifyFile, {
           header: false,
           complete: (shopifyResults) => {
-            console.log("Shopify parsing complete");
+        
             
             // Process the raw CSV data
             const headers = shopifyResults.data[0];
@@ -47,7 +44,7 @@ function CompareStock() {
               return item;
             });
             
-            console.log("Processed Shopify Data:", shopifyData);
+         
             compareAndGenerateFile(wooResults.data, shopifyData);
           },
           error: (error) => console.error("Error parsing Shopify CSV:", error)
@@ -57,8 +54,7 @@ function CompareStock() {
     });
   };
   const compareAndGenerateFile = (wooData, shopifyData) => {
-    console.log("WooCommerce Data Length:", wooData.length);
-    console.log("Shopify Data Length:", shopifyData.length);
+   
   
     // Extract location fields from the Shopify data
     const locationFields = [
@@ -85,15 +81,15 @@ function CompareStock() {
         let stock = 0;
         if (shopifyItem) {
           const rawValue = shopifyItem[location] || shopifyItem[`"${location}"`]; // Try both with and without quotes
-          console.log(`Raw value for ${location}:`, rawValue);
+  
           stock = rawValue === 'not stocked' ? 0 : (parseInt(rawValue) || 0);
-          console.log(`Parsed stock for ${location}:`, stock);
+        
         }
         locationStocks[location] = stock;
         totalShopifyStock += stock;
       });
   
-      console.log("Total Shopify Stock:", totalShopifyStock);
+    
   
       const wooStock = parseInt(wooItem.Stock) || 0;
       const totalStock = wooStock + totalShopifyStock;
@@ -111,17 +107,16 @@ function CompareStock() {
         ShopifySKU: shopifyItem ? (shopifyItem.SKU || 'N/A') : 'N/A',
       };
   
-      console.log("Result item:", result);
+     
       return result;
     });
   
-    console.log("Results:", results);
-    console.log("Results Length:", results.length);
+ 
     generateCSVFile(results);
   };
 
   const generateCSVFile = (data) => {
-    console.log("Generating CSV file with data:", data);
+ 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
